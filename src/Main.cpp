@@ -138,10 +138,15 @@ int main(int argc, char** argv)
 	instance_create_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO; // Set this struct instance's type
 	instance_create_info.pApplicationInfo = &application_info;
 	// TODO: Hook in required_extensions using VkInstanceCreateInfo::enabledExtensionCount and VkInstanceCreateInfo::ppEnabledExtensionNames!
+	instance_create_info.enabledLayerCount = static_cast<uint32_t>(enabled_layers.size());
+	instance_create_info.ppEnabledLayerNames = enabled_layers.data();
+
 	// TODO: Hook in enabled_layers using VkInstanceCreateInfo::enabledLayerCount and VkInstanceCreateInfo::ppEnabledLayerNames!
+	instance_create_info.enabledExtensionCount = static_cast<uint32_t>(required_extensions.size());
+	instance_create_info.ppEnabledExtensionNames = required_extensions.data();
 	
 	// TODO: Use vkCreateInstance to create a vulkan instance handle! Assign it to vk_instance!
-	VkResult result = VK_ERROR_INITIALIZATION_FAILED;
+	VkResult result = vkCreateInstance(&instance_create_info, nullptr, &vk_instance);
 	VKL_CHECK_VULKAN_RESULT(result);
 
 	if (!vk_instance) {
