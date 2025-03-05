@@ -175,8 +175,22 @@ int main(int argc, char** argv)
 	
 	// TODO: Use vkEnumeratePhysicalDevices get all the available physical device handles! 
 	//       Select one that is suitable using hlpSelectPhysicalDeviceIndex and assign it to vk_physical_device!
-	result = VK_ERROR_INITIALIZATION_FAILED;
-	VKL_CHECK_VULKAN_RESULT(result);
+	uint32_t deviceCount = 0;
+	vkEnumeratePhysicalDevices(vk_instance, &deviceCount, nullptr);
+	if (deviceCount == 0) {
+		VKL_EXIT_WITH_ERROR("No physical devices found.");
+	}
+	std::vector<VkPhysicalDevice> physical_devices(deviceCount);
+	vkEnumeratePhysicalDevices(vk_instance, &deviceCount, physical_devices.data());
+	uint32_t selected_physical_device_index = hlpSelectPhysicalDeviceIndex(physical_devices, vk_surface);
+	vk_physical_device = physical_devices[selected_physical_device_index];
+	// Display the selected physical device info
+	VkPhysicalDeviceProperties deviceProperties;
+	vkGetPhysicalDeviceProperties(vk_physical_device, &deviceProperties);
+	VKL_LOG("Selected physical device: " << deviceProperties.deviceName);
+
+	//result = VK_ERROR_INITIALIZATION_FAILED;
+	//VKL_CHECK_VULKAN_RESULT(result);
 	
 	if (!vk_physical_device) {
 		VKL_EXIT_WITH_ERROR("No VkPhysicalDevice selected or handle not assigned.");
