@@ -422,7 +422,10 @@ int main(int argc, char** argv)
 		//  - VklSwapchainImageDetails::imageFormat
 		//  - VklSwapchainImageDetails::imageUsage
 		//  - VklSwapchainImageDetails::clearValue
-		framebufferData.colorAttachmentImageDetails.imageHandle = VK_NULL_HANDLE;
+		framebufferData.colorAttachmentImageDetails.imageHandle = vk_image;
+		framebufferData.colorAttachmentImageDetails.imageFormat = swapchain_create_info.imageFormat;
+		framebufferData.colorAttachmentImageDetails.imageUsage = swapchain_create_info.imageUsage;
+		framebufferData.colorAttachmentImageDetails.clearValue = { 0.0f, 0.0f, 0.0f, 1.0f }; // Clear color to black
 		
 		// We don't need the depth attachment now, but keep it in mind for later!
 		framebufferData.depthAttachmentImageDetails.imageHandle = VK_NULL_HANDLE;
