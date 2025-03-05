@@ -95,7 +95,7 @@ int main(int argc, char** argv)
 	glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
 	// TODO: Get a valid window handle and assign to window:
-	GLFWwindow* window = nullptr;
+	GLFWwindow* window = glfwCreateWindow(window_width, window_height, window_title, monitor, nullptr);
 	
 	if (!window) {
 		VKL_LOG("If your program reaches this point, that means two things:");
