@@ -204,6 +204,7 @@ int main(int argc, char** argv)
 	// TODO: Find a suitable queue family and assign its index to the following variable:
 	//       Hint: Use selectQueueFamilyIndex, but complete its implementation before!
 	uint32_t selected_queue_family_index = std::numeric_limits<uint32_t>::max();
+	selected_queue_family_index = selectQueueFamilyIndex(vk_physical_device, vk_surface);
 
 	// Sanity check if we have selected a valid queue family index:
 	uint32_t queue_family_count = 0;
@@ -409,6 +410,19 @@ uint32_t selectQueueFamilyIndex(VkPhysicalDevice physical_device, VkSurfaceKHR s
 	vkGetPhysicalDeviceQueueFamilyProperties(physical_device, &queue_family_count, queue_families.data());
 	
 	// TODO: Find a suitable queue family index and return it!
+	uint32_t index = 0;
+	for (const auto& queueFamily : queue_families) {
+		if (queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT) {
+			VkBool32 presentSupport = false;
+			vkGetPhysicalDeviceSurfaceSupportKHR(physical_device, queue_family_count, surface, &presentSupport);
+			if (presentSupport) {
+				VKL_LOG("Find queue family index " << index << " supports both graphics and presentation.");
+				return index;
+			}
+		}
+
+		index++;
+	}
 	
 	VKL_EXIT_WITH_ERROR("Unable to find a suitable queue family that supports graphics and presentation on the same queue.");
 }
