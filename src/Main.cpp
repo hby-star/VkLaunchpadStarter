@@ -64,6 +64,10 @@ uint32_t selectQueueFamilyIndex(VkPhysicalDevice physical_device, VkSurfaceKHR s
 // Main
 /* ------------------------------------------------ */
 
+const std::vector<const char*> deviceExtensions = {
+	VK_KHR_SWAPCHAIN_EXTENSION_NAME
+};
+
 int main(int argc, char** argv)
 {
 	VKL_LOG(":::::: WELCOME TO VULKAN LAUNCHPAD ::::::");
@@ -234,7 +238,17 @@ int main(int argc, char** argv)
 	//         to enable the VK_KHR_SWAPCHAIN_EXTENSION_NAME device extension!
 	//        - The other parameters are not required (ensure that they are zero-initialized).
 	//       Finally, use vkCreateDevice to create the device and assign its handle to vk_device!
-	result = VK_ERROR_INITIALIZATION_FAILED;
+	VkPhysicalDeviceFeatures deviceFeatures{};
+	VkDeviceCreateInfo createInfo{};
+	createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+	createInfo.queueCreateInfoCount = 1;
+	createInfo.pQueueCreateInfos = &queue_create_info;
+	createInfo.pEnabledFeatures = &deviceFeatures;
+	createInfo.enabledExtensionCount = static_cast<uint32_t>(deviceExtensions.size());
+	createInfo.ppEnabledExtensionNames = deviceExtensions.data();
+	createInfo.enabledLayerCount = 0;
+
+	result = vkCreateDevice(vk_physical_device, &createInfo, nullptr, &vk_device);
 	VKL_CHECK_VULKAN_RESULT(result);
 
 	if (!vk_device) {
@@ -243,6 +257,7 @@ int main(int argc, char** argv)
 	
 	// TODO: After device creation, use vkGetDeviceQueue to get the one and only created queue!
 	//       Assign its handle to vk_queue!
+	vkGetDeviceQueue(vk_device, selected_queue_family_index, 0, &vk_queue);
 	
 	if (!vk_queue) {
 		VKL_EXIT_WITH_ERROR("No VkQueue selected or handle not assigned.");
