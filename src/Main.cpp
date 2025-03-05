@@ -462,7 +462,27 @@ int main(int argc, char** argv)
 	/* --------------------------------------------- */
 	// Task 1.10: Cleanup
 	/* --------------------------------------------- */
+
+	// 每个vkCreate都应该对应一个vkDestroy，按照此思路进行检查
+	// Destroy the teapot buffers in 1.9
+	teapotDestroyBuffers();
+	// Destroy the framework in 1.8
 	vklDestroyFramework();
+	// Destroy the swapchain in 1.7
+	vkDestroySwapchainKHR(vk_device, vk_swapchain, nullptr);
+	// Destroy the logical device in 1.6
+	vkDestroyDevice(vk_device, nullptr);
+	// Destroy the surface in 1.3
+	vkDestroySurfaceKHR(vk_instance, vk_surface, nullptr);
+	// Destroy the instance in 1.2
+	vkDestroyInstance(vk_instance, nullptr);
+	// Destroy the window in 1.1
+	glfwDestroyWindow(window);
+	glfwTerminate();
+
+	VKL_LOG("Task 1.10 done.");
+	VKL_LOG("Bye~");
+
 
 	return EXIT_SUCCESS;
 }
