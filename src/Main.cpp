@@ -443,10 +443,18 @@ int main(int argc, char** argv)
 	/* --------------------------------------------- */
 	// Task 1.9:  Implement the Render Loop
 	/* --------------------------------------------- */
+	teapotCreateGeometryAndBuffers();
 	while (!glfwWindowShouldClose(window)) {
 		glfwPollEvents(); // Handle user input
-		
+
+		vklWaitForNextSwapchainImage();
+		vklStartRecordingCommands();
+		teapotDraw();
+		vklEndRecordingCommands();
+		vklPresentCurrentSwapchainImage();
 	}
+
+	VKL_LOG("Task 1.9 done.");
 
 	// Wait for all GPU work to finish before cleaning up:
 	vkDeviceWaitIdle(vk_device);
