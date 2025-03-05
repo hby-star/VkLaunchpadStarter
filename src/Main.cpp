@@ -160,7 +160,7 @@ int main(int argc, char** argv)
 	VkSurfaceKHR vk_surface = VK_NULL_HANDLE;
 
 	// TODO: Use glfwCreateWindowSurface to create a window surface! Assign its handle to vk_surface!
-	result = VK_ERROR_INITIALIZATION_FAILED;
+	result = glfwCreateWindowSurface(vk_instance, window, nullptr, &vk_surface);
 	VKL_CHECK_VULKAN_RESULT(result);
 	
 	if (!vk_surface) {
