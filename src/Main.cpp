@@ -582,14 +582,13 @@ uint32_t selectQueueFamilyIndex(VkPhysicalDevice physical_device, VkSurfaceKHR s
 	{
 		if (queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT)
 		{
-			// May not need
-			//VkBool32 presentSupport = false;
-			//vkGetPhysicalDeviceSurfaceSupportKHR(physical_device, queue_family_count, surface, &presentSupport);
-			//if (presentSupport) {
-			//	VKL_LOG("Find queue family index " << index << " supports both graphics and presentation.");
-			//	return index;
-			//}
-			return index;
+			VkBool32 presentSupport = false;
+			vkGetPhysicalDeviceSurfaceSupportKHR(physical_device, index, surface, &presentSupport);
+			if (presentSupport)
+			{
+				VKL_LOG("Find queue family index " << index << " supports both graphics and presentation.");
+				return index;
+			}
 		}
 
 		index++;
