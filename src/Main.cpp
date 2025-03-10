@@ -5,6 +5,7 @@
  // Include our framework and the Vulkan headers:
 #include "VulkanLaunchpad.h"
 #include <vulkan/vulkan.h>
+#include "Camera.h"
 
 // Include some local helper functions:
 #include "VulkanHelpers.h"
@@ -245,21 +246,12 @@ struct UniformBufferObject
 	glm::mat4 proj;
 };
 
-void updateUniformBuffer(void* uniformBufferMapped)
+void updateUniformBuffer(void* uniformBufferMapped, UniformBufferObject ubo)
 {
 	static auto startTime = std::chrono::high_resolution_clock::now();
 
 	auto currentTime = std::chrono::high_resolution_clock::now();
 	float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
-
-	UniformBufferObject ubo{};
-	glm::mat4 rotation = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-	glm::mat4 scale = glm::scale(glm::mat4(1.0f), glm::vec3(1.0f, 2.0f, 1.0f));
-	ubo.model = rotation * scale;
-	ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-	ubo.proj = glm::perspective(glm::radians(45.0f), 800 / (float)600, 0.1f, 10.0f);
-	ubo.proj[1][1] *= -1;
-
 	memcpy(uniformBufferMapped, &ubo, sizeof(ubo));
 }
 
@@ -297,6 +289,7 @@ int main(int argc, char** argv)
 
 	// Get a valid window handle and assign to window:
 	GLFWwindow* window = glfwCreateWindow(window_width, window_height, window_title, monitor, nullptr);
+	VklCameraHandle camera = vklCreateCamera(window);
 
 	if (!window)
 	{
@@ -670,7 +663,13 @@ int main(int argc, char** argv)
 		vklWaitForNextSwapchainImage();
 		vklStartRecordingCommands();
 
-		updateUniformBuffer(uniformBufferMapped);
+		vklUpdateCamera(camera);
+		UniformBufferObject ubo{};
+		ubo.model = glm::scale(glm::mat4(1.0f), glm::vec3(1.0f, 2.0f, 1.0f));
+		ubo.view = vklGetCameraViewMatrix(camera);
+		ubo.proj = vklGetCameraProjectionMatrix(camera);
+
+		updateUniformBuffer(uniformBufferMapped, ubo);
 		teapotDraw(customPipeline, descriptorSet);
 
 		vklEndRecordingCommands();
