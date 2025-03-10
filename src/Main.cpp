@@ -184,7 +184,7 @@ int main(int argc, char** argv)
 	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API); // No need to create a graphics context for Vulkan
 	glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
-	// TODO: Get a valid window handle and assign to window:
+	// Get a valid window handle and assign to window:
 	GLFWwindow* window = glfwCreateWindow(window_width, window_height, window_title, monitor, nullptr);
 
 	if (!window)
@@ -229,15 +229,15 @@ int main(int argc, char** argv)
 	VkInstanceCreateInfo instance_create_info = {}; // Zero-initialize every member
 	instance_create_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO; // Set this struct instance's type
 	instance_create_info.pApplicationInfo = &application_info;
-	// TODO: Hook in required_extensions using VkInstanceCreateInfo::enabledExtensionCount and VkInstanceCreateInfo::ppEnabledExtensionNames!
+	// Hook in required_extensions using VkInstanceCreateInfo::enabledExtensionCount and VkInstanceCreateInfo::ppEnabledExtensionNames!
 	instance_create_info.enabledLayerCount = static_cast<uint32_t>(enabled_layers.size());
 	instance_create_info.ppEnabledLayerNames = enabled_layers.data();
 
-	// TODO: Hook in enabled_layers using VkInstanceCreateInfo::enabledLayerCount and VkInstanceCreateInfo::ppEnabledLayerNames!
+	// Hook in enabled_layers using VkInstanceCreateInfo::enabledLayerCount and VkInstanceCreateInfo::ppEnabledLayerNames!
 	instance_create_info.enabledExtensionCount = static_cast<uint32_t>(required_extensions.size());
 	instance_create_info.ppEnabledExtensionNames = required_extensions.data();
 
-	// TODO: Use vkCreateInstance to create a vulkan instance handle! Assign it to vk_instance!
+	// Use vkCreateInstance to create a vulkan instance handle! Assign it to vk_instance!
 	VkResult result = vkCreateInstance(&instance_create_info, nullptr, &vk_instance);
 	VKL_CHECK_VULKAN_RESULT(result);
 
@@ -252,7 +252,7 @@ int main(int argc, char** argv)
 	/* --------------------------------------------- */
 	VkSurfaceKHR vk_surface = VK_NULL_HANDLE;
 
-	// TODO: Use glfwCreateWindowSurface to create a window surface! Assign its handle to vk_surface!
+	// Use glfwCreateWindowSurface to create a window surface! Assign its handle to vk_surface!
 	result = glfwCreateWindowSurface(vk_instance, window, nullptr, &vk_surface);
 	VKL_CHECK_VULKAN_RESULT(result);
 
@@ -267,7 +267,7 @@ int main(int argc, char** argv)
 	/* --------------------------------------------- */
 	VkPhysicalDevice vk_physical_device = VK_NULL_HANDLE;
 
-	// TODO: Use vkEnumeratePhysicalDevices get all the available physical device handles! 
+	// Use vkEnumeratePhysicalDevices get all the available physical device handles! 
 	//       Select one that is suitable using hlpSelectPhysicalDeviceIndex and assign it to vk_physical_device!
 	uint32_t deviceCount = 0;
 	vkEnumeratePhysicalDevices(vk_instance, &deviceCount, nullptr);
@@ -297,7 +297,7 @@ int main(int argc, char** argv)
 	// Task 1.5: Select a Queue Family
 	/* --------------------------------------------- */
 
-	// TODO: Find a suitable queue family and assign its index to the following variable:
+	// Find a suitable queue family and assign its index to the following variable:
 	//       Hint: Use selectQueueFamilyIndex, but complete its implementation before!
 	uint32_t selected_queue_family_index = std::numeric_limits<uint32_t>::max();
 	selected_queue_family_index = selectQueueFamilyIndex(vk_physical_device, vk_surface);
@@ -325,7 +325,7 @@ int main(int argc, char** argv)
 	queue_create_info.queueCount = 1;
 	queue_create_info.pQueuePriorities = &queue_priority;
 
-	// TODO: Create an instance of VkDeviceCreateInfo and use it to create one queue!
+	// Create an instance of VkDeviceCreateInfo and use it to create one queue!
 	//        - Hook in queue_create_info at the right place!
 	//        - Use VkDeviceCreateInfo::enabledExtensionCount and VkDeviceCreateInfo::ppEnabledExtensionNames
 	//         to enable the VK_KHR_SWAPCHAIN_EXTENSION_NAME device extension!
@@ -349,7 +349,7 @@ int main(int argc, char** argv)
 		VKL_EXIT_WITH_ERROR("No VkDevice created or handle not assigned.");
 	}
 
-	// TODO: After device creation, use vkGetDeviceQueue to get the one and only created queue!
+	// After device creation, use vkGetDeviceQueue to get the one and only created queue!
 	//       Assign its handle to vk_queue!
 	vkGetDeviceQueue(vk_device, selected_queue_family_index, 0, &vk_queue);
 
@@ -377,7 +377,7 @@ int main(int argc, char** argv)
 	swapchain_create_info.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
 	swapchain_create_info.clipped = VK_TRUE;
 	swapchain_create_info.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
-	// TODO: Provide values for:
+	// Provide values for:
 	//        - VkSwapchainCreateInfoKHR::queueFamilyIndexCount
 	//        - VkSwapchainCreateInfoKHR::pQueueFamilyIndices
 	//        - VkSwapchainCreateInfoKHR::imageFormat
@@ -399,7 +399,7 @@ int main(int argc, char** argv)
 	swapchain_create_info.presentMode = presentMode;
 
 
-	// TODO: Create the swapchain using vkCreateSwapchainKHR and assign its handle to vk_swapchain!
+	// Create the swapchain using vkCreateSwapchainKHR and assign its handle to vk_swapchain!
 	result = vkCreateSwapchainKHR(vk_device, &swapchain_create_info, nullptr, &vk_swapchain);
 	VKL_CHECK_VULKAN_RESULT(result);
 
@@ -410,7 +410,7 @@ int main(int argc, char** argv)
 
 	// Create a vector of VkImages with enough memory for all the swap chain's images:
 	std::vector<VkImage> swap_chain_images(surface_capabilities.minImageCount);
-	// TODO: Use vkGetSwapchainImagesKHR to write VkImage handles into swap_chain_images.data()!
+	// Use vkGetSwapchainImagesKHR to write VkImage handles into swap_chain_images.data()!
 	result = vkGetSwapchainImagesKHR(vk_device, vk_swapchain, &surface_capabilities.minImageCount, swap_chain_images.data());
 	VKL_CHECK_VULKAN_RESULT(result);
 
@@ -431,7 +431,7 @@ int main(int argc, char** argv)
 	for (VkImage vk_image : swap_chain_images)
 	{
 		VklSwapchainFramebufferComposition framebufferData;
-		// TODO: Fill the data for the color attachment:
+		// Fill the data for the color attachment:
 		//  - VklSwapchainImageDetails::imageHandle
 		//  - VklSwapchainImageDetails::imageFormat
 		//  - VklSwapchainImageDetails::imageUsage
@@ -576,7 +576,7 @@ uint32_t selectQueueFamilyIndex(VkPhysicalDevice physical_device, VkSurfaceKHR s
 	std::vector<VkQueueFamilyProperties> queue_families(queue_family_count);
 	vkGetPhysicalDeviceQueueFamilyProperties(physical_device, &queue_family_count, queue_families.data());
 
-	// TODO: Find a suitable queue family index and return it!
+	// Find a suitable queue family index and return it!
 	uint32_t index = 0;
 	for (const auto& queueFamily : queue_families)
 	{
