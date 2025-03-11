@@ -42,7 +42,8 @@ add_executable(${PROJECT_NAME}
     src/VulkanHelpers.cpp 
     src/Teapot.h 
     src/Teapot.cpp 
-)
+    src/LoadModel.cpp
+    src/LoadModel.h)
 target_link_libraries(${PROJECT_NAME} PRIVATE VulkanLaunchpad)
 add_dependencies(${PROJECT_NAME} VulkanLaunchpad)
 install(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION bin LIBRARY DESTINATION lib ARCHIVE DESTINATION lib)

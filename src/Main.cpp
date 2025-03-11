@@ -10,6 +10,7 @@
 // Include some local helper functions:
 #include "VulkanHelpers.h"
 #include "Teapot.h"
+#include "LoadModel.h"
 
 // Include functionality from the standard library:
 #include <vector>
@@ -17,7 +18,7 @@
 #include <limits>
 #include <algorithm>
 #include <array>
-#include <chrono>
+#include <string>
 
 /* ------------------------------------------------ */
 // Some more little helpers directly declared here:
@@ -248,10 +249,6 @@ struct UniformBufferObject
 
 void updateUniformBuffer(void* uniformBufferMapped, UniformBufferObject ubo)
 {
-	static auto startTime = std::chrono::high_resolution_clock::now();
-
-	auto currentTime = std::chrono::high_resolution_clock::now();
-	float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 	memcpy(uniformBufferMapped, &ubo, sizeof(ubo));
 }
 
@@ -564,7 +561,7 @@ int main(int argc, char** argv)
 	/* --------------------------------------------- */
 
 	/* --------------------------------------------- */
-	// Task 2.1: Create a descriptor set layout
+	// Create a descriptor set layout
 	/* --------------------------------------------- */
 	VkDescriptorSetLayout descriptorSetLayout;
 
@@ -653,9 +650,15 @@ int main(int argc, char** argv)
 	pipeline_config.descriptorLayout = { uboLayoutBinding };
 	pipeline_config.vertexInputBuffers = { bindingDescription };
 	pipeline_config.inputAttributeDescriptions = inputAttributeDescriptions;
+	pipeline_config.polygonDrawMode = VK_POLYGON_MODE_LINE;
+	pipeline_config.triangleCullingMode = VK_CULL_MODE_BACK_BIT;
 	VkPipeline customPipeline = vklCreateGraphicsPipeline(pipeline_config);
 
-	teapotCreateGeometryAndBuffers();
+	const std::string modelPath = "C:\\Users\\Admin\\Desktop\\Learn\\Vulkan\\VkLaunchpadStarter\\assets\\cube\\cube.obj";
+	//teapotCreateGeometryAndBuffers();
+	Model model;
+	model.loadModelAndCreateGeometryAndBuffers(modelPath);
+
 	while (!glfwWindowShouldClose(window))
 	{
 		glfwPollEvents(); // Handle user input
@@ -665,12 +668,13 @@ int main(int argc, char** argv)
 
 		vklUpdateCamera(camera);
 		UniformBufferObject ubo{};
-		ubo.model = glm::scale(glm::mat4(1.0f), glm::vec3(1.0f, 2.0f, 1.0f));
+		ubo.model = glm::scale(glm::mat4(1.0f), glm::vec3(1.0f, 1.0f, 1.0f));
 		ubo.view = vklGetCameraViewMatrix(camera);
 		ubo.proj = vklGetCameraProjectionMatrix(camera);
-
 		updateUniformBuffer(uniformBufferMapped, ubo);
-		teapotDraw(customPipeline, descriptorSet);
+
+		//teapotDraw(customPipeline, descriptorSet);
+		model.drawModel(customPipeline, descriptorSet);
 
 		vklEndRecordingCommands();
 		vklPresentCurrentSwapchainImage();
@@ -697,7 +701,8 @@ int main(int argc, char** argv)
 
 	// Every vkCreate should have a vkDestroy£¬follow this rule to clean up resources.
 	// Destroy the teapot buffers in 1.9
-	teapotDestroyBuffers();
+	//teapotDestroyBuffers();
+	model.destroyModelBuffers();
 	// Destroy the framework in 1.8
 	vklDestroyFramework();
 	// Destroy the swapchain in 1.7
