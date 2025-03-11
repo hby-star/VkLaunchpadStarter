@@ -295,6 +295,118 @@ void createImage(VkDevice device, VkPhysicalDevice physicalDevice, uint32_t widt
 	vkBindImageMemory(device, image, imageMemory, 0);
 }
 
+VkCommandBuffer beginSingleTimeCommands(VkDevice device, VkCommandPool commandPool)
+{
+	VkCommandBufferAllocateInfo allocInfo{};
+	allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+	allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+	allocInfo.commandPool = commandPool;
+	allocInfo.commandBufferCount = 1;
+
+	VkCommandBuffer commandBuffer;
+	vkAllocateCommandBuffers(device, &allocInfo, &commandBuffer);
+
+	VkCommandBufferBeginInfo beginInfo{};
+	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+	beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+	vkBeginCommandBuffer(commandBuffer, &beginInfo);
+
+	return commandBuffer;
+}
+
+void endSingleTimeCommands(VkDevice device, VkCommandPool commandPool, VkCommandBuffer commandBuffer, VkQueue graphicsQueue)
+{
+	vkEndCommandBuffer(commandBuffer);
+
+	VkSubmitInfo submitInfo{};
+	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+	submitInfo.commandBufferCount = 1;
+	submitInfo.pCommandBuffers = &commandBuffer;
+
+	vkQueueSubmit(graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
+	vkQueueWaitIdle(graphicsQueue);
+
+	vkFreeCommandBuffers(device, commandPool, 1, &commandBuffer);
+}
+
+void transitionImageLayout(VkDevice device, VkCommandPool commandPool, VkQueue graphicsQueue, VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mipLevels)
+{
+	VkCommandBuffer commandBuffer = beginSingleTimeCommands(device, commandPool);
+
+	VkImageMemoryBarrier barrier{};
+	barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+	barrier.oldLayout = oldLayout;
+	barrier.newLayout = newLayout;
+	barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	barrier.image = image;
+	barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	barrier.subresourceRange.baseMipLevel = 0;
+	barrier.subresourceRange.levelCount = mipLevels;
+	barrier.subresourceRange.baseArrayLayer = 0;
+	barrier.subresourceRange.layerCount = 1;
+
+	VkPipelineStageFlags sourceStage;
+	VkPipelineStageFlags destinationStage;
+
+	if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL)
+	{
+		barrier.srcAccessMask = 0;
+		barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+
+		sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+		destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+	}
+	else if (oldLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
+	{
+		barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+		barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+		sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+		destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+	}
+	else
+	{
+		throw std::invalid_argument("unsupported layout transition!");
+	}
+
+	vkCmdPipelineBarrier(
+		commandBuffer,
+		sourceStage, destinationStage,
+		0,
+		0, nullptr,
+		0, nullptr,
+		1, &barrier
+	);
+
+	endSingleTimeCommands(device, commandPool, commandBuffer, graphicsQueue);
+}
+
+void copyBufferToImage(VkDevice device, VkCommandPool commandPool, VkQueue graphicsQueue, VkBuffer buffer, VkImage image, uint32_t width, uint32_t height)
+{
+	VkCommandBuffer commandBuffer = beginSingleTimeCommands(device, commandPool);
+
+	VkBufferImageCopy region{};
+	region.bufferOffset = 0;
+	region.bufferRowLength = 0;
+	region.bufferImageHeight = 0;
+	region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	region.imageSubresource.mipLevel = 0;
+	region.imageSubresource.baseArrayLayer = 0;
+	region.imageSubresource.layerCount = 1;
+	region.imageOffset = { 0, 0, 0 };
+	region.imageExtent = {
+		width,
+		height,
+		1
+	};
+
+	vkCmdCopyBufferToImage(commandBuffer, buffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+
+	endSingleTimeCommands(device, commandPool, commandBuffer, graphicsQueue);
+}
+
 
 struct MVPMatrix
 {
@@ -502,6 +614,7 @@ int main(int argc, char** argv)
 	//       Finally, use vkCreateDevice to create the device and assign its handle to vk_device!
 	VkPhysicalDeviceFeatures deviceFeatures{};
 	deviceFeatures.fillModeNonSolid = VK_TRUE;
+	deviceFeatures.samplerAnisotropy = VK_TRUE;
 
 	VkDeviceCreateInfo createInfo{};
 	createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
@@ -660,7 +773,14 @@ int main(int argc, char** argv)
 	lightLayoutBinding.pImmutableSamplers = nullptr;
 	lightLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
-	std::vector<VkDescriptorSetLayoutBinding> layoutBindings = { mvpLayoutBinding, lightLayoutBinding };
+	VkDescriptorSetLayoutBinding samplerLayoutBinding{};
+	samplerLayoutBinding.binding = 2;
+	samplerLayoutBinding.descriptorCount = 1;
+	samplerLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	samplerLayoutBinding.pImmutableSamplers = nullptr;
+	samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+	std::vector<VkDescriptorSetLayoutBinding> layoutBindings = { mvpLayoutBinding, lightLayoutBinding, samplerLayoutBinding };
 
 	VkDescriptorSetLayoutCreateInfo layoutInfo{};
 	layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
@@ -673,23 +793,37 @@ int main(int argc, char** argv)
 	}
 
 	// Create a descriptor pool
-	std::array<VkDescriptorPoolSize, 2> poolSizes{};
-	poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-	poolSizes[0].descriptorCount = 1;
-	poolSizes[1].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-	poolSizes[1].descriptorCount = 1;
+	std::array<VkDescriptorPoolSize, 3> descriptorPoolSizes{};
+	descriptorPoolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	descriptorPoolSizes[0].descriptorCount = 1;
+	descriptorPoolSizes[1].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	descriptorPoolSizes[1].descriptorCount = 1;
+	descriptorPoolSizes[2].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	descriptorPoolSizes[2].descriptorCount = 1;
 
-	VkDescriptorPoolCreateInfo poolInfo{};
-	poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-	poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
-	poolInfo.pPoolSizes = poolSizes.data();
-	poolInfo.maxSets = 1;
+	VkDescriptorPoolCreateInfo descriptorPoolInfo{};
+	descriptorPoolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+	descriptorPoolInfo.poolSizeCount = static_cast<uint32_t>(descriptorPoolSizes.size());
+	descriptorPoolInfo.pPoolSizes = descriptorPoolSizes.data();
+	descriptorPoolInfo.maxSets = 1;
 
 	VkDescriptorPool descriptorPool;
 
-	if (vkCreateDescriptorPool(vk_device, &poolInfo, nullptr, &descriptorPool) != VK_SUCCESS)
+	if (vkCreateDescriptorPool(vk_device, &descriptorPoolInfo, nullptr, &descriptorPool) != VK_SUCCESS)
 	{
 		throw std::runtime_error("failed to create descriptor pool!");
+	}
+
+	// Create a command pool
+	VkCommandPool commandPool;
+	VkCommandPoolCreateInfo commandPoolInfo{};
+	commandPoolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+	commandPoolInfo.queueFamilyIndex = selected_queue_family_index;
+	commandPoolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+
+	if (vkCreateCommandPool(vk_device, &commandPoolInfo, nullptr, &commandPool) != VK_SUCCESS)
+	{
+		throw std::runtime_error("failed to create command pool!");
 	}
 
 	// Allocate a descriptor set
@@ -727,7 +861,52 @@ int main(int argc, char** argv)
 	lightBufferInfo.offset = 0;
 	lightBufferInfo.range = lightBufferSize;
 
-	std::array<VkWriteDescriptorSet, 2> descriptorWrites{};
+	/**************************************************************************************************/
+	const std::string texturePath = "C:\\Users\\Admin\\Desktop\\Learn\\Vulkan\\VkLaunchpadStarter\\assets\\vespa\\vespa.dds";
+
+	VkImage textureImage;
+	VklImageInfo imageInfo = vklGetDdsImageLevelInfo(texturePath.c_str(), 1);
+	VkBuffer textureBuffer = vklLoadDdsImageLevelIntoHostCoherentBuffer(texturePath.c_str(), 1);
+	VkDeviceSize imageSize = imageInfo.extent.width * imageInfo.extent.height * 4;
+	textureImage = vklCreateDeviceLocalImageWithBackingMemory(imageInfo.extent.width, imageInfo.extent.height, imageInfo.imageFormat, VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT);
+	transitionImageLayout(vk_device, commandPool, vk_queue, textureImage, imageInfo.imageFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1);
+	copyBufferToImage(vk_device, commandPool, vk_queue, textureBuffer, textureImage, imageInfo.extent.width, imageInfo.extent.height);
+	transitionImageLayout(vk_device, commandPool, vk_queue, textureImage, imageInfo.imageFormat, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 1);
+
+	VkSampler textureSampler;
+	VkPhysicalDeviceProperties properties{};
+	vkGetPhysicalDeviceProperties(vk_physical_device, &properties);
+	VkSamplerCreateInfo samplerInfo{};
+	samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+	samplerInfo.magFilter = VK_FILTER_LINEAR;
+	samplerInfo.minFilter = VK_FILTER_LINEAR;
+	samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+	samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+	samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+	samplerInfo.anisotropyEnable = VK_TRUE;
+	samplerInfo.maxAnisotropy = properties.limits.maxSamplerAnisotropy;
+	samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+	samplerInfo.unnormalizedCoordinates = VK_FALSE;
+	samplerInfo.compareEnable = VK_FALSE;
+	samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
+	samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+	//samplerInfo.minLod = static_cast<float>(mipLevels / 2);
+	samplerInfo.minLod = 0.0f;
+	samplerInfo.maxLod = 0.0f;
+	samplerInfo.mipLodBias = 0.0f;
+	if (vkCreateSampler(vk_device, &samplerInfo, nullptr, &textureSampler) != VK_SUCCESS)
+	{
+		throw std::runtime_error("failed to create texture sampler!");
+	}
+
+	VkImageView textureImageView = createImageView(vk_device, textureImage, imageInfo.imageFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1);
+
+	VkDescriptorImageInfo descriptorImageInfo{};
+	descriptorImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	descriptorImageInfo.imageView = textureImageView;
+	descriptorImageInfo.sampler = textureSampler;
+
+	std::array<VkWriteDescriptorSet, 3> descriptorWrites{};
 	descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 	descriptorWrites[0].dstSet = descriptorSet;
 	descriptorWrites[0].dstBinding = 0;
@@ -742,6 +921,13 @@ int main(int argc, char** argv)
 	descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 	descriptorWrites[1].descriptorCount = 1;
 	descriptorWrites[1].pBufferInfo = &lightBufferInfo;
+	descriptorWrites[2].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	descriptorWrites[2].dstSet = descriptorSet;
+	descriptorWrites[2].dstBinding = 2;
+	descriptorWrites[2].dstArrayElement = 0;
+	descriptorWrites[2].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	descriptorWrites[2].descriptorCount = 1;
+	descriptorWrites[2].pImageInfo = &descriptorImageInfo;
 
 	vkUpdateDescriptorSets(vk_device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
 
@@ -752,18 +938,20 @@ int main(int argc, char** argv)
 	VklGraphicsPipelineConfig pipeline_config = {};
 	pipeline_config.vertexShaderPath = "C:\\Users\\Admin\\Desktop\\Learn\\Vulkan\\VkLaunchpadStarter\\assets\\shader\\shader.vert";
 	pipeline_config.fragmentShaderPath = "C:\\Users\\Admin\\Desktop\\Learn\\Vulkan\\VkLaunchpadStarter\\assets\\shader\\shader.frag";
-	pipeline_config.descriptorLayout = { mvpLayoutBinding, lightLayoutBinding };
+	pipeline_config.descriptorLayout = { mvpLayoutBinding, lightLayoutBinding, samplerLayoutBinding };
 	pipeline_config.vertexInputBuffers = { bindingDescription };
 	pipeline_config.inputAttributeDescriptions = inputAttributeDescriptions;
 	pipeline_config.polygonDrawMode = VK_POLYGON_MODE_FILL;
 	pipeline_config.triangleCullingMode = VK_CULL_MODE_BACK_BIT;
 	VkPipeline customPipeline = vklCreateGraphicsPipeline(pipeline_config);
 
-	const std::string modelPathCube = "C:\\Users\\Admin\\Desktop\\Learn\\Vulkan\\VkLaunchpadStarter\\assets\\cube\\cube.obj";
-	const std::string modelPathSphere = "C:\\Users\\Admin\\Desktop\\Learn\\Vulkan\\VkLaunchpadStarter\\assets\\sphere\\sphere.obj";
+	const std::string modelPathVespa = "C:\\Users\\Admin\\Desktop\\Learn\\Vulkan\\VkLaunchpadStarter\\assets\\vespa\\vespa.obj";
+	//const std::string modelPathCube = "C:\\Users\\Admin\\Desktop\\Learn\\Vulkan\\VkLaunchpadStarter\\assets\\cube\\cube.obj";
+	//const std::string modelPathSphere = "C:\\Users\\Admin\\Desktop\\Learn\\Vulkan\\VkLaunchpadStarter\\assets\\sphere\\sphere.obj";
 	Model model;
-	model.createGeometryAndBuffers(modelPathCube, glm::vec3(-1.5f, 0.0f, 0.0f));
-	model.createGeometryAndBuffers(modelPathSphere, glm::vec3(1.5f, 0.0f, 0.0f));
+	model.createGeometryAndBuffers(modelPathVespa, glm::vec3(0.0f, 0.0f, 0.0f));
+	//model.createGeometryAndBuffers(modelPathCube, glm::vec3(-1.5f, 0.0f, 0.0f));
+	//model.createGeometryAndBuffers(modelPathSphere, glm::vec3(1.5f, 0.0f, 0.0f));
 
 	while (!glfwWindowShouldClose(window))
 	{
@@ -779,7 +967,7 @@ int main(int argc, char** argv)
 		mvp.proj = vklGetCameraProjectionMatrix(camera);
 		LightInfo light{};
 		light.lightPos = glm::vec3(5.0f, 5.0f, 5.0f);
-		light.lightColor = glm::vec3(1.0f, 1.0f, 1.0f);
+		light.lightColor = glm::vec3(0.0f, 1.0f, 1.0f);
 		light.camPos = vklGetCameraPosition(camera);
 		updateMVPBuffer(mvpBufferMapped, mvp);
 		updateLightBuffer(lightBufferMapped, light);
@@ -806,6 +994,15 @@ int main(int argc, char** argv)
 	vkFreeMemory(vk_device, mvpBufferMemory, nullptr);
 	vkDestroyBuffer(vk_device, lightBuffer, nullptr);
 	vkFreeMemory(vk_device, lightBufferMemory, nullptr);
+	vklDestroyHostCoherentBufferAndItsBackingMemory(textureBuffer);
+	// Destroy the texture image
+	vklDestroyDeviceLocalImageAndItsBackingMemory(textureImage);
+	// Destroy the command pool
+	vkDestroyCommandPool(vk_device, commandPool, nullptr);
+	// Destroy the texture image view
+	vkDestroyImageView(vk_device, textureImageView, nullptr);
+	// Destroy the texture sampler
+	vkDestroySampler(vk_device, textureSampler, nullptr);
 	// Destroy the descriptor set layout
 	vkDestroyDescriptorSetLayout(vk_device, descriptorSetLayout, nullptr);
 	// Destroy the descriptor pool

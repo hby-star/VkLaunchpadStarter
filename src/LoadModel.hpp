@@ -21,6 +21,7 @@ struct Vertex
 {
 	glm::vec3 pos;
 	glm::vec3 normal;
+	glm::vec2 texCoord;
 
 	static VkVertexInputBindingDescription getBindingDescription()
 	{
@@ -35,7 +36,7 @@ struct Vertex
 
 	static std::vector<VkVertexInputAttributeDescription> getAttributeDescriptions()
 	{
-		std::vector<VkVertexInputAttributeDescription> attributeDescriptions(2);
+		std::vector<VkVertexInputAttributeDescription> attributeDescriptions(3);
 
 		attributeDescriptions[0].binding = 0;
 		attributeDescriptions[0].location = 0;
@@ -46,6 +47,11 @@ struct Vertex
 		attributeDescriptions[1].location = 1;
 		attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
 		attributeDescriptions[1].offset = offsetof(Vertex, normal);
+
+		attributeDescriptions[2].binding = 0;
+		attributeDescriptions[2].location = 2;
+		attributeDescriptions[2].format = VK_FORMAT_R32G32_SFLOAT;
+		attributeDescriptions[2].offset = offsetof(Vertex, texCoord);
 
 		return attributeDescriptions;
 	}
@@ -74,10 +80,10 @@ public:
 		{
 			vertexs[i].pos = newDrawModelData.mGeometryData.positions[i] + trans;
 			vertexs[i].normal = newDrawModelData.mGeometryData.normals[i];
+			vertexs[i].texCoord = newDrawModelData.mGeometryData.textureCoordinates[i];
 		}
 
 		std::vector<uint32_t> indices = newDrawModelData.mGeometryData.indices;
-		std::vector<glm::vec2> textureCoordinates = newDrawModelData.mGeometryData.textureCoordinates;
 
 		newDrawModelData.mNumModelIndices = static_cast<uint32_t>(indices.size());
 		const auto device = vklGetDevice();
