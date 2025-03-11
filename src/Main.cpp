@@ -10,7 +10,7 @@
 // Include some local helper functions:
 #include "VulkanHelpers.h"
 #include "Teapot.h"
-#include "LoadModel.h"
+#include "LoadModel.hpp"
 
 // Include functionality from the standard library:
 #include <vector>
@@ -70,7 +70,7 @@ uint32_t selectQueueFamilyIndex(VkPhysicalDevice physical_device, VkSurfaceKHR s
 /* ------------------------------------------------ */
 
 const std::vector<const char*> deviceExtensions = {
-	VK_KHR_SWAPCHAIN_EXTENSION_NAME
+	VK_KHR_SWAPCHAIN_EXTENSION_NAME,
 };
 
 struct SwapChainSupportDetails
@@ -433,6 +433,8 @@ int main(int argc, char** argv)
 	//        - The other parameters are not required (ensure that they are zero-initialized).
 	//       Finally, use vkCreateDevice to create the device and assign its handle to vk_device!
 	VkPhysicalDeviceFeatures deviceFeatures{};
+	deviceFeatures.fillModeNonSolid = VK_TRUE;
+
 	VkDeviceCreateInfo createInfo{};
 	createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
 	createInfo.queueCreateInfoCount = 1;
@@ -638,7 +640,6 @@ int main(int argc, char** argv)
 
 	vkUpdateDescriptorSets(vk_device, 1, &descriptorWrite, 0, nullptr);
 
-
 	// Create a graphics pipeline
 	VkVertexInputBindingDescription bindingDescription = Vertex::getBindingDescription();
 	std::array<VkVertexInputAttributeDescription, 1> attributeDescriptions = Vertex::getAttributeDescriptions();
@@ -654,10 +655,11 @@ int main(int argc, char** argv)
 	pipeline_config.triangleCullingMode = VK_CULL_MODE_BACK_BIT;
 	VkPipeline customPipeline = vklCreateGraphicsPipeline(pipeline_config);
 
-	const std::string modelPath = "C:\\Users\\Admin\\Desktop\\Learn\\Vulkan\\VkLaunchpadStarter\\assets\\cube\\cube.obj";
-	//teapotCreateGeometryAndBuffers();
+	const std::string modelPathCube = "C:\\Users\\Admin\\Desktop\\Learn\\Vulkan\\VkLaunchpadStarter\\assets\\cube\\cube.obj";
+	const std::string modelPathSphere = "C:\\Users\\Admin\\Desktop\\Learn\\Vulkan\\VkLaunchpadStarter\\assets\\sphere\\sphere.obj";
 	Model model;
-	model.loadModelAndCreateGeometryAndBuffers(modelPath);
+	model.createGeometryAndBuffers(modelPathCube, glm::vec3(-1.5f, 0.0f, 0.0f));
+	model.createGeometryAndBuffers(modelPathSphere, glm::vec3(1.5f, 0.0f, 0.0f));
 
 	while (!glfwWindowShouldClose(window))
 	{
@@ -673,8 +675,7 @@ int main(int argc, char** argv)
 		ubo.proj = vklGetCameraProjectionMatrix(camera);
 		updateUniformBuffer(uniformBufferMapped, ubo);
 
-		//teapotDraw(customPipeline, descriptorSet);
-		model.drawModel(customPipeline, descriptorSet);
+		model.drawAllModel(customPipeline, descriptorSet);
 
 		vklEndRecordingCommands();
 		vklPresentCurrentSwapchainImage();
@@ -702,7 +703,7 @@ int main(int argc, char** argv)
 	// Every vkCreate should have a vkDestroy£¬follow this rule to clean up resources.
 	// Destroy the teapot buffers in 1.9
 	//teapotDestroyBuffers();
-	model.destroyModelBuffers();
+	model.destroyAllModelBuffers();
 	// Destroy the framework in 1.8
 	vklDestroyFramework();
 	// Destroy the swapchain in 1.7
