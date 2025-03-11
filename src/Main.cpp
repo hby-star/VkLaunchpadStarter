@@ -212,7 +212,7 @@ struct LightInfo
 {
 	glm::vec3 lightPos;
 	glm::vec3 lightColor;
-	glm::vec3 viewPos;
+	glm::vec3 camPos;
 };
 
 void updateMVPBuffer(void* mvpBufferMapped, MVPMatrix mvp)
@@ -670,9 +670,9 @@ int main(int argc, char** argv)
 		mvp.view = vklGetCameraViewMatrix(camera);
 		mvp.proj = vklGetCameraProjectionMatrix(camera);
 		LightInfo light{};
-		light.lightPos = glm::vec3(0.0f, 2.0f, 2.0f);
+		light.lightPos = glm::vec3(5.0f, 5.0f, 5.0f);
 		light.lightColor = glm::vec3(1.0f, 1.0f, 1.0f);
-		light.viewPos = vklGetCameraPosition(camera);
+		light.camPos = vklGetCameraPosition(camera);
 		updateMVPBuffer(mvpBufferMapped, mvp);
 		updateLightBuffer(lightBufferMapped, light);
 
