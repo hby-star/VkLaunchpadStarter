@@ -155,106 +155,6 @@ VkExtent2D chooseSwapExtent(GLFWwindow* window, const VkSurfaceCapabilitiesKHR& 
 	}
 }
 
-uint32_t findMemoryType(VkPhysicalDevice physicalDevice, uint32_t typeFilter, VkMemoryPropertyFlags properties)
-{
-	VkPhysicalDeviceMemoryProperties memProperties;
-	vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memProperties);
-
-	for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++)
-	{
-		if ((typeFilter & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & properties) == properties)
-		{
-			return i;
-		}
-	}
-
-	throw std::runtime_error("failed to find suitable memory type!");
-}
-
-void createBuffer(VkDevice device, VkPhysicalDevice physicalDevice, VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory)
-{
-	VkBufferCreateInfo bufferInfo{};
-	bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-	bufferInfo.size = size;
-	bufferInfo.usage = usage;
-	bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
-	if (vkCreateBuffer(device, &bufferInfo, nullptr, &buffer) != VK_SUCCESS)
-	{
-		throw std::runtime_error("failed to create buffer!");
-	}
-
-	VkMemoryRequirements memRequirements;
-	vkGetBufferMemoryRequirements(device, buffer, &memRequirements);
-
-	VkMemoryAllocateInfo allocInfo{};
-	allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-	allocInfo.allocationSize = memRequirements.size;
-	allocInfo.memoryTypeIndex = findMemoryType(physicalDevice, memRequirements.memoryTypeBits, properties);
-
-	if (vkAllocateMemory(device, &allocInfo, nullptr, &bufferMemory) != VK_SUCCESS)
-	{
-		throw std::runtime_error("failed to allocate buffer memory!");
-	}
-
-	vkBindBufferMemory(device, buffer, bufferMemory, 0);
-}
-
-struct Vertex
-{
-	glm::vec3 pos;
-	//glm::vec3 color;
-	//glm::vec2 texCoord;
-
-	static VkVertexInputBindingDescription getBindingDescription()
-	{
-		VkVertexInputBindingDescription bindingDescription{};
-		bindingDescription.binding = 0;
-		bindingDescription.stride = sizeof(Vertex);
-		bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-
-		return bindingDescription;
-	}
-
-	static std::array<VkVertexInputAttributeDescription, 1> getAttributeDescriptions()
-	{
-		std::array<VkVertexInputAttributeDescription, 1> attributeDescriptions{};
-
-		attributeDescriptions[0].binding = 0;
-		attributeDescriptions[0].location = 0;
-		attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
-		attributeDescriptions[0].offset = offsetof(Vertex, pos);
-
-		//attributeDescriptions[1].binding = 0;
-		//attributeDescriptions[1].location = 1;
-		//attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
-		//attributeDescriptions[1].offset = offsetof(Vertex, color);
-
-		//attributeDescriptions[2].binding = 0;
-		//attributeDescriptions[2].location = 2;
-		//attributeDescriptions[2].format = VK_FORMAT_R32G32_SFLOAT;
-		//attributeDescriptions[2].offset = offsetof(Vertex, texCoord);
-
-		return attributeDescriptions;
-	}
-};
-
-struct UniformBufferObject
-{
-	glm::mat4 model;
-	glm::mat4 view;
-	glm::mat4 proj;
-};
-
-void updateUniformBuffer(void* uniformBufferMapped, UniformBufferObject ubo)
-{
-	static auto startTime = std::chrono::high_resolution_clock::now();
-
-	auto currentTime = std::chrono::high_resolution_clock::now();
-	float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
-	memcpy(uniformBufferMapped, &ubo, sizeof(ubo));
-}
-
 int main(int argc, char** argv)
 {
 	VKL_LOG(":::::: WELCOME TO VULKAN LAUNCHPAD ::::::");
@@ -289,7 +189,6 @@ int main(int argc, char** argv)
 
 	// Get a valid window handle and assign to window:
 	GLFWwindow* window = glfwCreateWindow(window_width, window_height, window_title, monitor, nullptr);
-	VklCameraHandle camera = vklCreateCamera(window);
 
 	if (!window)
 	{
@@ -563,98 +462,6 @@ int main(int argc, char** argv)
 	// Task 1.9:  Implement the Render Loop
 	/* --------------------------------------------- */
 
-	/* --------------------------------------------- */
-	// Task 2.1: Create a descriptor set layout
-	/* --------------------------------------------- */
-	VkDescriptorSetLayout descriptorSetLayout;
-
-	VkDescriptorSetLayoutBinding uboLayoutBinding{};
-	uboLayoutBinding.binding = 0;
-	uboLayoutBinding.descriptorCount = 1;
-	uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-	uboLayoutBinding.pImmutableSamplers = nullptr;
-	uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-
-	VkDescriptorSetLayoutCreateInfo layoutInfo{};
-	layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-	layoutInfo.bindingCount = 1;
-	layoutInfo.pBindings = &uboLayoutBinding;
-
-	if (vkCreateDescriptorSetLayout(vk_device, &layoutInfo, nullptr, &descriptorSetLayout) != VK_SUCCESS)
-	{
-		throw std::runtime_error("failed to create descriptor set layout!");
-	}
-
-	// Create a descriptor pool
-	VkDescriptorPoolSize poolSize;
-	poolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-	poolSize.descriptorCount = 1;
-
-	VkDescriptorPoolCreateInfo poolInfo{};
-	poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-	poolInfo.poolSizeCount = 1;
-	poolInfo.pPoolSizes = &poolSize;
-	poolInfo.maxSets = 1;
-
-	VkDescriptorPool descriptorPool;
-
-	if (vkCreateDescriptorPool(vk_device, &poolInfo, nullptr, &descriptorPool) != VK_SUCCESS)
-	{
-		throw std::runtime_error("failed to create descriptor pool!");
-	}
-
-	// Allocate a descriptor set
-	VkDescriptorSetAllocateInfo allocInfo{};
-	allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-	allocInfo.descriptorPool = descriptorPool;
-	allocInfo.descriptorSetCount = 1;
-	allocInfo.pSetLayouts = &descriptorSetLayout;
-
-	VkDescriptorSet descriptorSet;
-	if (vkAllocateDescriptorSets(vk_device, &allocInfo, &descriptorSet) != VK_SUCCESS)
-	{
-		throw std::runtime_error("failed to allocate descriptor set!");
-	}
-
-	VkBuffer uniformBuffer;
-	VkDeviceMemory uniformBufferMemory;
-	void* uniformBufferMapped;
-
-	VkDeviceSize bufferSize = sizeof(UniformBufferObject);
-	createBuffer(vk_device, vk_physical_device, bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformBuffer, uniformBufferMemory);
-
-	vkMapMemory(vk_device, uniformBufferMemory, 0, bufferSize, 0, &uniformBufferMapped);
-
-	VkDescriptorBufferInfo bufferInfo{};
-	bufferInfo.buffer = uniformBuffer;
-	bufferInfo.offset = 0;
-	bufferInfo.range = bufferSize;
-
-	VkWriteDescriptorSet descriptorWrite{};
-	descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-	descriptorWrite.dstSet = descriptorSet;
-	descriptorWrite.dstBinding = 0;
-	descriptorWrite.dstArrayElement = 0;
-	descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-	descriptorWrite.descriptorCount = 1;
-	descriptorWrite.pBufferInfo = &bufferInfo;
-
-	vkUpdateDescriptorSets(vk_device, 1, &descriptorWrite, 0, nullptr);
-
-
-	// Create a graphics pipeline
-	VkVertexInputBindingDescription bindingDescription = Vertex::getBindingDescription();
-	std::array<VkVertexInputAttributeDescription, 1> attributeDescriptions = Vertex::getAttributeDescriptions();
-	std::vector<VkVertexInputAttributeDescription> inputAttributeDescriptions(attributeDescriptions.begin(), attributeDescriptions.end());
-
-	VklGraphicsPipelineConfig pipeline_config = {};
-	pipeline_config.vertexShaderPath = "C:\\Users\\Admin\\Desktop\\Learn\\Vulkan\\VkLaunchpadStarter\\assets\\shader\\shader.vert";
-	pipeline_config.fragmentShaderPath = "C:\\Users\\Admin\\Desktop\\Learn\\Vulkan\\VkLaunchpadStarter\\assets\\shader\\shader.frag";
-	pipeline_config.descriptorLayout = { uboLayoutBinding };
-	pipeline_config.vertexInputBuffers = { bindingDescription };
-	pipeline_config.inputAttributeDescriptions = inputAttributeDescriptions;
-	VkPipeline customPipeline = vklCreateGraphicsPipeline(pipeline_config);
-
 	teapotCreateGeometryAndBuffers();
 	while (!glfwWindowShouldClose(window))
 	{
@@ -663,14 +470,7 @@ int main(int argc, char** argv)
 		vklWaitForNextSwapchainImage();
 		vklStartRecordingCommands();
 
-		vklUpdateCamera(camera);
-		UniformBufferObject ubo{};
-		ubo.model = glm::scale(glm::mat4(1.0f), glm::vec3(1.0f, 2.0f, 1.0f));
-		ubo.view = vklGetCameraViewMatrix(camera);
-		ubo.proj = vklGetCameraProjectionMatrix(camera);
-
-		updateUniformBuffer(uniformBufferMapped, ubo);
-		teapotDraw(customPipeline, descriptorSet);
+		teapotDraw();
 
 		vklEndRecordingCommands();
 		vklPresentCurrentSwapchainImage();
@@ -684,16 +484,6 @@ int main(int argc, char** argv)
 	/* --------------------------------------------- */
 	// Task 1.10: Cleanup
 	/* --------------------------------------------- */
-
-	// Destroy the graphics pipeline
-	vklDestroyGraphicsPipeline(customPipeline);
-	// Destory the buffer
-	vkDestroyBuffer(vk_device, uniformBuffer, nullptr);
-	vkFreeMemory(vk_device, uniformBufferMemory, nullptr);
-	// Destroy the descriptor set layout
-	vkDestroyDescriptorSetLayout(vk_device, descriptorSetLayout, nullptr);
-	// Destroy the descriptor pool
-	vkDestroyDescriptorPool(vk_device, descriptorPool, nullptr);
 
 	// Every vkCreate should have a vkDestroy£¬follow this rule to clean up resources.
 	// Destroy the teapot buffers in 1.9
