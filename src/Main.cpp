@@ -201,55 +201,28 @@ void createBuffer(VkDevice device, VkPhysicalDevice physicalDevice, VkDeviceSize
 	vkBindBufferMemory(device, buffer, bufferMemory, 0);
 }
 
-struct Vertex
-{
-	glm::vec3 pos;
-	//glm::vec3 color;
-	//glm::vec2 texCoord;
-
-	static VkVertexInputBindingDescription getBindingDescription()
-	{
-		VkVertexInputBindingDescription bindingDescription{};
-		bindingDescription.binding = 0;
-		bindingDescription.stride = sizeof(Vertex);
-		bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-
-		return bindingDescription;
-	}
-
-	static std::array<VkVertexInputAttributeDescription, 1> getAttributeDescriptions()
-	{
-		std::array<VkVertexInputAttributeDescription, 1> attributeDescriptions{};
-
-		attributeDescriptions[0].binding = 0;
-		attributeDescriptions[0].location = 0;
-		attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
-		attributeDescriptions[0].offset = offsetof(Vertex, pos);
-
-		//attributeDescriptions[1].binding = 0;
-		//attributeDescriptions[1].location = 1;
-		//attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
-		//attributeDescriptions[1].offset = offsetof(Vertex, color);
-
-		//attributeDescriptions[2].binding = 0;
-		//attributeDescriptions[2].location = 2;
-		//attributeDescriptions[2].format = VK_FORMAT_R32G32_SFLOAT;
-		//attributeDescriptions[2].offset = offsetof(Vertex, texCoord);
-
-		return attributeDescriptions;
-	}
-};
-
-struct UniformBufferObject
+struct MVPMatrix
 {
 	glm::mat4 model;
 	glm::mat4 view;
 	glm::mat4 proj;
 };
 
-void updateUniformBuffer(void* uniformBufferMapped, UniformBufferObject ubo)
+struct LightInfo
 {
-	memcpy(uniformBufferMapped, &ubo, sizeof(ubo));
+	glm::vec3 lightPos;
+	glm::vec3 lightColor;
+	glm::vec3 viewPos;
+};
+
+void updateMVPBuffer(void* mvpBufferMapped, MVPMatrix mvp)
+{
+	memcpy(mvpBufferMapped, &mvp, sizeof(mvp));
+}
+
+void updateLightBuffer(void* lightBufferMapped, LightInfo light)
+{
+	memcpy(lightBufferMapped, &light, sizeof(light));
 }
 
 int main(int argc, char** argv)
@@ -562,22 +535,29 @@ int main(int argc, char** argv)
 	// Task 1.9:  Implement the Render Loop
 	/* --------------------------------------------- */
 
-	/* --------------------------------------------- */
 	// Create a descriptor set layout
-	/* --------------------------------------------- */
 	VkDescriptorSetLayout descriptorSetLayout;
 
-	VkDescriptorSetLayoutBinding uboLayoutBinding{};
-	uboLayoutBinding.binding = 0;
-	uboLayoutBinding.descriptorCount = 1;
-	uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-	uboLayoutBinding.pImmutableSamplers = nullptr;
-	uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+	VkDescriptorSetLayoutBinding mvpLayoutBinding{};
+	mvpLayoutBinding.binding = 0;
+	mvpLayoutBinding.descriptorCount = 1;
+	mvpLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	mvpLayoutBinding.pImmutableSamplers = nullptr;
+	mvpLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+
+	VkDescriptorSetLayoutBinding lightLayoutBinding{};
+	lightLayoutBinding.binding = 1;
+	lightLayoutBinding.descriptorCount = 1;
+	lightLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	lightLayoutBinding.pImmutableSamplers = nullptr;
+	lightLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+	std::vector<VkDescriptorSetLayoutBinding> layoutBindings = { mvpLayoutBinding, lightLayoutBinding };
 
 	VkDescriptorSetLayoutCreateInfo layoutInfo{};
 	layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-	layoutInfo.bindingCount = 1;
-	layoutInfo.pBindings = &uboLayoutBinding;
+	layoutInfo.bindingCount = static_cast<uint32_t>(layoutBindings.size());
+	layoutInfo.pBindings = layoutBindings.data();
 
 	if (vkCreateDescriptorSetLayout(vk_device, &layoutInfo, nullptr, &descriptorSetLayout) != VK_SUCCESS)
 	{
@@ -585,14 +565,16 @@ int main(int argc, char** argv)
 	}
 
 	// Create a descriptor pool
-	VkDescriptorPoolSize poolSize;
-	poolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-	poolSize.descriptorCount = 1;
+	std::array<VkDescriptorPoolSize, 2> poolSizes{};
+	poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	poolSizes[0].descriptorCount = 1;
+	poolSizes[1].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	poolSizes[1].descriptorCount = 1;
 
 	VkDescriptorPoolCreateInfo poolInfo{};
 	poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-	poolInfo.poolSizeCount = 1;
-	poolInfo.pPoolSizes = &poolSize;
+	poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
+	poolInfo.pPoolSizes = poolSizes.data();
 	poolInfo.maxSets = 1;
 
 	VkDescriptorPool descriptorPool;
@@ -615,43 +597,57 @@ int main(int argc, char** argv)
 		throw std::runtime_error("failed to allocate descriptor set!");
 	}
 
-	VkBuffer uniformBuffer;
-	VkDeviceMemory uniformBufferMemory;
-	void* uniformBufferMapped;
+	VkBuffer mvpBuffer;
+	VkDeviceMemory mvpBufferMemory;
+	void* mvpBufferMapped;
+	VkDeviceSize mvpBufferSize = sizeof(MVPMatrix);
+	createBuffer(vk_device, vk_physical_device, mvpBufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, mvpBuffer, mvpBufferMemory);
+	vkMapMemory(vk_device, mvpBufferMemory, 0, mvpBufferSize, 0, &mvpBufferMapped);
+	VkDescriptorBufferInfo mvpBufferInfo{};
+	mvpBufferInfo.buffer = mvpBuffer;
+	mvpBufferInfo.offset = 0;
+	mvpBufferInfo.range = mvpBufferSize;
 
-	VkDeviceSize bufferSize = sizeof(UniformBufferObject);
-	createBuffer(vk_device, vk_physical_device, bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformBuffer, uniformBufferMemory);
+	VkBuffer lightBuffer;
+	VkDeviceMemory lightBufferMemory;
+	void* lightBufferMapped;
+	VkDeviceSize lightBufferSize = sizeof(LightInfo);
+	createBuffer(vk_device, vk_physical_device, lightBufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, lightBuffer, lightBufferMemory);
+	vkMapMemory(vk_device, lightBufferMemory, 0, lightBufferSize, 0, &lightBufferMapped);
+	VkDescriptorBufferInfo lightBufferInfo{};
+	lightBufferInfo.buffer = lightBuffer;
+	lightBufferInfo.offset = 0;
+	lightBufferInfo.range = lightBufferSize;
 
-	vkMapMemory(vk_device, uniformBufferMemory, 0, bufferSize, 0, &uniformBufferMapped);
+	std::array<VkWriteDescriptorSet, 2> descriptorWrites{};
+	descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	descriptorWrites[0].dstSet = descriptorSet;
+	descriptorWrites[0].dstBinding = 0;
+	descriptorWrites[0].dstArrayElement = 0;
+	descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	descriptorWrites[0].descriptorCount = 1;
+	descriptorWrites[0].pBufferInfo = &mvpBufferInfo;
+	descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	descriptorWrites[1].dstSet = descriptorSet;
+	descriptorWrites[1].dstBinding = 1;
+	descriptorWrites[1].dstArrayElement = 0;
+	descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	descriptorWrites[1].descriptorCount = 1;
+	descriptorWrites[1].pBufferInfo = &lightBufferInfo;
 
-	VkDescriptorBufferInfo bufferInfo{};
-	bufferInfo.buffer = uniformBuffer;
-	bufferInfo.offset = 0;
-	bufferInfo.range = bufferSize;
-
-	VkWriteDescriptorSet descriptorWrite{};
-	descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-	descriptorWrite.dstSet = descriptorSet;
-	descriptorWrite.dstBinding = 0;
-	descriptorWrite.dstArrayElement = 0;
-	descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-	descriptorWrite.descriptorCount = 1;
-	descriptorWrite.pBufferInfo = &bufferInfo;
-
-	vkUpdateDescriptorSets(vk_device, 1, &descriptorWrite, 0, nullptr);
+	vkUpdateDescriptorSets(vk_device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
 
 	// Create a graphics pipeline
 	VkVertexInputBindingDescription bindingDescription = Vertex::getBindingDescription();
-	std::array<VkVertexInputAttributeDescription, 1> attributeDescriptions = Vertex::getAttributeDescriptions();
-	std::vector<VkVertexInputAttributeDescription> inputAttributeDescriptions(attributeDescriptions.begin(), attributeDescriptions.end());
+	std::vector<VkVertexInputAttributeDescription> inputAttributeDescriptions = Vertex::getAttributeDescriptions();
 
 	VklGraphicsPipelineConfig pipeline_config = {};
 	pipeline_config.vertexShaderPath = "C:\\Users\\Admin\\Desktop\\Learn\\Vulkan\\VkLaunchpadStarter\\assets\\shader\\shader.vert";
 	pipeline_config.fragmentShaderPath = "C:\\Users\\Admin\\Desktop\\Learn\\Vulkan\\VkLaunchpadStarter\\assets\\shader\\shader.frag";
-	pipeline_config.descriptorLayout = { uboLayoutBinding };
+	pipeline_config.descriptorLayout = { mvpLayoutBinding, lightLayoutBinding };
 	pipeline_config.vertexInputBuffers = { bindingDescription };
 	pipeline_config.inputAttributeDescriptions = inputAttributeDescriptions;
-	pipeline_config.polygonDrawMode = VK_POLYGON_MODE_LINE;
+	pipeline_config.polygonDrawMode = VK_POLYGON_MODE_FILL;
 	pipeline_config.triangleCullingMode = VK_CULL_MODE_BACK_BIT;
 	VkPipeline customPipeline = vklCreateGraphicsPipeline(pipeline_config);
 
@@ -669,11 +665,16 @@ int main(int argc, char** argv)
 		vklStartRecordingCommands();
 
 		vklUpdateCamera(camera);
-		UniformBufferObject ubo{};
-		ubo.model = glm::scale(glm::mat4(1.0f), glm::vec3(1.0f, 1.0f, 1.0f));
-		ubo.view = vklGetCameraViewMatrix(camera);
-		ubo.proj = vklGetCameraProjectionMatrix(camera);
-		updateUniformBuffer(uniformBufferMapped, ubo);
+		MVPMatrix mvp{};
+		mvp.model = glm::scale(glm::mat4(1.0f), glm::vec3(1.0f, 1.0f, 1.0f));
+		mvp.view = vklGetCameraViewMatrix(camera);
+		mvp.proj = vklGetCameraProjectionMatrix(camera);
+		LightInfo light{};
+		light.lightPos = glm::vec3(0.0f, 2.0f, 2.0f);
+		light.lightColor = glm::vec3(1.0f, 1.0f, 1.0f);
+		light.viewPos = vklGetCameraPosition(camera);
+		updateMVPBuffer(mvpBufferMapped, mvp);
+		updateLightBuffer(lightBufferMapped, light);
 
 		model.drawAllModel(customPipeline, descriptorSet);
 
@@ -693,8 +694,10 @@ int main(int argc, char** argv)
 	// Destroy the graphics pipeline
 	vklDestroyGraphicsPipeline(customPipeline);
 	// Destory the buffer
-	vkDestroyBuffer(vk_device, uniformBuffer, nullptr);
-	vkFreeMemory(vk_device, uniformBufferMemory, nullptr);
+	vkDestroyBuffer(vk_device, mvpBuffer, nullptr);
+	vkFreeMemory(vk_device, mvpBufferMemory, nullptr);
+	vkDestroyBuffer(vk_device, lightBuffer, nullptr);
+	vkFreeMemory(vk_device, lightBufferMemory, nullptr);
 	// Destroy the descriptor set layout
 	vkDestroyDescriptorSetLayout(vk_device, descriptorSetLayout, nullptr);
 	// Destroy the descriptor pool
