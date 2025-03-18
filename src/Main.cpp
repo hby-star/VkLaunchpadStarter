@@ -305,9 +305,9 @@ struct MVPMatrix
 
 struct LightInfo
 {
-	glm::vec3 lightPos;
-	glm::vec3 lightColor;
-	glm::vec3 camPos;
+	alignas(16)glm::vec3 lightPos;
+	alignas(16)glm::vec3 lightColor;
+	alignas(16)glm::vec3 camPos;
 };
 
 void updateMVPBuffer(void* mvpBufferMapped, MVPMatrix mvp)
