@@ -410,16 +410,16 @@ void copyBufferToImage(VkDevice device, VkCommandPool commandPool, VkQueue graph
 
 struct MVPMatrix
 {
-	glm::mat4 model;
-	glm::mat4 view;
-	glm::mat4 proj;
+	alignas(16)glm::mat4 model;
+	alignas(16)glm::mat4 view;
+	alignas(16)glm::mat4 proj;
 };
 
 struct LightInfo
 {
-	glm::vec3 lightPos;
-	glm::vec3 lightColor;
-	glm::vec3 camPos;
+	alignas(16)glm::vec3 lightPos;
+	alignas(16)glm::vec3 lightColor;
+	alignas(16)glm::vec3 camPos;
 };
 
 void updateMVPBuffer(void* mvpBufferMapped, MVPMatrix mvp)
@@ -967,7 +967,7 @@ int main(int argc, char** argv)
 		mvp.proj = vklGetCameraProjectionMatrix(camera);
 		LightInfo light{};
 		light.lightPos = glm::vec3(5.0f, 5.0f, 5.0f);
-		light.lightColor = glm::vec3(0.0f, 1.0f, 1.0f);
+		light.lightColor = glm::vec3(1.0f, 1.0f, 1.0f);
 		light.camPos = vklGetCameraPosition(camera);
 		updateMVPBuffer(mvpBufferMapped, mvp);
 		updateLightBuffer(lightBufferMapped, light);
