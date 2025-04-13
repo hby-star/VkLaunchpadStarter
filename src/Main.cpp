@@ -750,8 +750,8 @@ int main(int argc, char** argv)
 	std::vector<VkVertexInputAttributeDescription> inputAttributeDescriptions = Vertex::getAttributeDescriptions();
 
 	VklGraphicsPipelineConfig pipeline_config = {};
-	pipeline_config.vertexShaderPath = "C:\\Users\\Admin\\Desktop\\Learn\\Vulkan\\VkLaunchpadStarter\\assets\\shader\\shader.vert";
-	pipeline_config.fragmentShaderPath = "C:\\Users\\Admin\\Desktop\\Learn\\Vulkan\\VkLaunchpadStarter\\assets\\shader\\shader.frag";
+	pipeline_config.vertexShaderPath = "..\\..\\..\\assets\\shader\\shader.vert";
+	pipeline_config.fragmentShaderPath = "..\\..\\..\\assets\\shader\\shader.frag";
 	pipeline_config.descriptorLayout = { mvpLayoutBinding, lightLayoutBinding };
 	pipeline_config.vertexInputBuffers = { bindingDescription };
 	pipeline_config.inputAttributeDescriptions = inputAttributeDescriptions;
@@ -759,8 +759,8 @@ int main(int argc, char** argv)
 	pipeline_config.triangleCullingMode = VK_CULL_MODE_BACK_BIT;
 	VkPipeline customPipeline = vklCreateGraphicsPipeline(pipeline_config);
 
-	const std::string modelPathCube = "C:\\Users\\Admin\\Desktop\\Learn\\Vulkan\\VkLaunchpadStarter\\assets\\cube\\cube.obj";
-	const std::string modelPathSphere = "C:\\Users\\Admin\\Desktop\\Learn\\Vulkan\\VkLaunchpadStarter\\assets\\sphere\\sphere.obj";
+	const std::string modelPathCube = "..\\..\\..\\assets\\cube\\cube.obj";
+	const std::string modelPathSphere = "..\\..\\..\\assets\\sphere\\sphere.obj";
 	Model model;
 	model.createGeometryAndBuffers(modelPathCube, glm::vec3(-1.5f, 0.0f, 0.0f));
 	model.createGeometryAndBuffers(modelPathSphere, glm::vec3(1.5f, 0.0f, 0.0f));
